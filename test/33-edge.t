@@ -2,7 +2,7 @@
 
 require 'Test.More'
 
-plan(15)
+plan(22)
 
 local m = require 'Sereal'
 
@@ -34,4 +34,12 @@ is( t.d, 4 )
 t = m.Decoder.decode_sereal(m.Encoder.encode_sereal(t))
 is( t.b, 2 )
 is( t.d, nil, "don't follow metatable" )
+
+is( m.Encoder.encode_sereal(3.402824e+38, { number='float' }), m.Encoder.encode_sereal(1/0, { number='float' }), "float 3.402824e+38" )
+is( m.Encoder.encode_sereal(7e42, { number='float' }), m.Encoder.encode_sereal(1/0, { number='float' }), "inf (downcast double -> float)" )
+is( m.Encoder.encode_sereal(-7e42, { number='float' }), m.Encoder.encode_sereal(-1/0, { number='float' }), "inf (downcast double -> float)" )
+is( m.Decoder.decode_sereal(m.Encoder.encode_sereal(7e42, { number='float' })), 1/0, "inf (downcast double -> float)" )
+is( m.Decoder.decode_sereal(m.Encoder.encode_sereal(-7e42, { number='float' })), -1/0, "-inf (downcast double -> float)" )
+is( m.Decoder.decode_sereal(m.Encoder.encode_sereal(7e-42, { number='float' })), 0, "epsilon (downcast double -> float)" )
+is( m.Decoder.decode_sereal(m.Encoder.encode_sereal(-7e-42, { number='float' })), -0, "-epsilon (downcast double -> float)" )
 

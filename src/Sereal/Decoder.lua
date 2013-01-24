@@ -189,7 +189,7 @@ readers['float'] = function (c)
     end
     local n
     if mant == 0 and expo == 0 then
-        n = 0
+        n = sign * 0
     elseif expo == 0xFF then
         if mant == 0 then
             n = sign * huge
@@ -220,7 +220,7 @@ readers['double'] = function (c)
     end
     local n
     if mant == 0 and expo == 0 then
-        n = 0
+        n = sign * 0
     elseif expo == 0x7FF then
         if mant == 0 then
             n = sign * huge
@@ -488,7 +488,7 @@ end
 m._NAME = ...
 return m
 --
--- Copyright (c) 2012 Francois Perrad
+-- Copyright (c) 2012-2013 Francois Perrad
 --
 -- This library is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.

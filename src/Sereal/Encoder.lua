@@ -220,31 +220,38 @@ dumpers['float'] = function (buffer, n, obj)
     else
         buffer[#buffer+1] = 0x22                -- float
         offset = #buffer + 6 - 1
-        if n ~= n then      -- nan
+        local sign = 0
+        if n < 0 then
+            sign = 0x80
+            n = -n
+        end
+        local mant, expo = frexp(n)
+        if mant ~= mant then    -- nan
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x88
             buffer[#buffer+1] = 0xFF
-        elseif n == huge then
+        elseif n == huge or expo > 0x80 then
+            obj.saved[n] = offset
+            if sign == 0 then
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x80
+                buffer[#buffer+1] = 0x7F
+            else
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x80
+                buffer[#buffer+1] = 0xFF
+            end
+        elseif (mant == 0 and expo == 0) or expo < -0x7E then
             obj.saved[n] = offset
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x80
-            buffer[#buffer+1] = 0x7F
-        elseif n == -huge then
-            obj.saved[n] = offset
             buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x80
-            buffer[#buffer+1] = 0xFF
+            buffer[#buffer+1] = sign
         else
             obj.saved[n] = offset
-            local sign = 0
-            if n < 0 then
-                sign = 0x80
-                n = -n
-            end
-            local mant, expo = frexp(n)
             mant = (mant * 2 - 1) * ldexp(0.5, 24)
             expo = expo + 0x7E
             buffer[#buffer+1] = mant % 0x100
@@ -263,7 +270,13 @@ dumpers['double'] = function (buffer, n, obj)
     else
         buffer[#buffer+1] = 0x23                -- double
         offset = #buffer + 6 - 1
-        if n ~= n then      -- nan
+        local sign = 0
+        if n < 0 then
+            sign = 0x80
+            n = -n
+        end
+        local mant, expo = frexp(n)
+        if mant ~= mant then    -- nan
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
@@ -272,7 +285,28 @@ dumpers['double'] = function (buffer, n, obj)
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0xF8
             buffer[#buffer+1] = 0xFF
-        elseif n == huge then
+        elseif mant == huge then
+            obj.saved[n] = offset
+            if sign == 0 then
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0xF0
+                buffer[#buffer+1] = 0x7F
+            else
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0x00
+                buffer[#buffer+1] = 0xF0
+                buffer[#buffer+1] = 0xFF
+            end
+        elseif mant == 0 and expo == 0 then
             obj.saved[n] = offset
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
@@ -280,26 +314,10 @@ dumpers['double'] = function (buffer, n, obj)
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
             buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0xF0
-            buffer[#buffer+1] = 0x7F
-        elseif n == -huge then
-            obj.saved[n] = offset
             buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0x00
-            buffer[#buffer+1] = 0xF0
-            buffer[#buffer+1] = 0xFF
+            buffer[#buffer+1] = sign
         else
             obj.saved[n] = offset
-            local sign = 0
-            if n < 0 then
-                sign = 0x80
-                n = -n
-            end
-            local mant, expo = frexp(n)
             mant = (mant * 2 - 1) * ldexp(0.5, 53)
             expo = expo + 0x3FE
             buffer[#buffer+1] = mant % 0x100
@@ -363,7 +381,7 @@ local function new (options)
         obj.dumpers['number'] = dumpers['signed']
     elseif number == 'float' then
         obj.dumpers['number'] = function (buffer, n, obj)
-            if floor(n) ~= n or n ~= n or n == huge or n == -huge then
+            if floor(n) ~= n or n ~= n or n > 3.40282347e+38 or n < -3.40282347e+38 then
                 return dumpers['float'](buffer, n, obj)
             else
                 return dumpers['integer'](buffer, n, obj)
@@ -403,7 +421,7 @@ end
 m._NAME = ...
 return m
 --
--- Copyright (c) 2012 Francois Perrad
+-- Copyright (c) 2012-2013 Francois Perrad
 --
 -- This library is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
